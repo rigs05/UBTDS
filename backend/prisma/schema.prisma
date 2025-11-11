@@ -1,0 +1,203 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DB_URI")
+}
+
+// ---------- ENUMS ----------
+enum Role {
+  ADMIN
+  RC_ADMIN
+  DISTRIBUTOR
+  STUDENT
+}
+
+enum HubType {
+  MAJOR
+  MINOR
+  COLLECTION
+}
+
+enum BookCondition {
+  NEW
+  USED
+}
+
+enum OrderType {
+  INDIVIDUAL
+  BULK
+}
+
+// ---------- MODELS ----------
+
+// Regional Centers (main nodes per state/region)
+model RegionalCenter {
+  id        String   @id @default(cuid())
+  name      String
+  code      String?  @unique
+  address   String
+  state     String
+  zones     Zone[]
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Zones (subdivisions under each RC)
+model Zone {
+  id           String           @id @default(cuid())
+  name         String
+  code         String?          @unique
+  state        String
+  rcId         String
+  rc           RegionalCenter   @relation(fields: [rcId], references: [id])
+  distributors Distributor[]
+  students     User[]
+  hubs         Hub[]
+  // stocks       Stock[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Hubs / Pickup Points under Zone
+model Hub {
+  id        String   @id @default(cuid())
+  name      String
+  address   String
+  zoneId    String
+  zone      Zone     @relation(fields: [zoneId], references: [id])
+  type      HubType
+  order     Order[]
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Distributors handling delivery in each Zone
+model Distributor {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  zoneId    String
+  zone      Zone     @relation(fields: [zoneId], references: [id])
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Core — Books managed by the system
+model Book {
+  id            String         @id @default(cuid())
+  title         String
+  author        String?
+  isbn          String?        @unique
+  edition       String?
+  publisher     String?
+  condition     BookCondition  @default(NEW)
+  price         Float?
+  courseId      String?
+  course        Course?        @relation(fields: [courseId], references: [id])
+  listedById    String?        // for used books
+  listedBy      User?          @relation("UserListedBooks", fields: [listedById], references: [id])
+  stockItems    Stock[]
+  orders        OrderItem[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+// Track stock of each book per Zone
+model Stock {
+  id        String   @id @default(cuid())
+  bookId    String
+  book      Book     @relation(fields: [bookId], references: [id])
+  zoneId    String
+  // zone      Zone     @relation(fields: [zoneId], references: [id])
+  quantity  Int
+  condition BookCondition @default(NEW)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Courses offered
+model Course {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  books       Book[]
+  users       User[]   @relation("UserCourses")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Users (Students, Admins, RC Admins, Distributors)
+model User {
+  id           String          @id @default(cuid())
+  enrollmentNo String?         @unique
+  email        String          @unique
+  password     String
+  firstName    String
+  lastName     String?
+  role         Role            @default(STUDENT)
+  phone        String?
+  address      String?
+  rcId         String?
+  rc           RegionalCenter? @relation(fields: [rcId], references: [id])
+  zoneId       String?
+  zone         Zone?           @relation(fields: [zoneId], references: [id])
+  courses      Course[]        @relation("UserCourses")
+  orders       Order[]
+  feedbacks    Feedback[]
+  listedBooks  Book[]          @relation("UserListedBooks")
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+// Orders — track book requests by Students or RCs
+model Order {
+  id             String        @id @default(cuid())
+  studentId      String?
+  student        User?          @relation(fields: [studentId], references: [id])
+  distributorId  String?
+  distributor    Distributor?  @relation(fields: [distributorId], references: [id])
+  status         String        @default("PENDING") // pending, dispatched, delivered, cancelled
+  hubId          String?
+  hub            Hub?          @relation(fields: [hubId], references: [id])
+  etaDays        Int?
+  orderType      OrderType     @default(INDIVIDUAL) // individual (done by Student), bulk (done by RC)
+  items          OrderItem[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+// Order Items — each book in an order
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  bookId    String
+  book      Book     @relation(fields: [bookId], references: [id])
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Feedback system
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  message   String
+  rating    Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
