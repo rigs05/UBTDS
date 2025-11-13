@@ -1,8 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import router from './routes/index.js';
 import authRouter from './routes/authRoutes.js';
-// import { PrismaClient } from './generated/prisma/client.js'; 
-// import { PrismaClient } from '@prisma/client';
 import cors, { type CorsOptions } from 'cors';
 import prisma from './config/db.js';
 const app = express();
