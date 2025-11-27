@@ -4,6 +4,13 @@ dist/
 logs/
 
 *.bkp
+
+/src/generated/prisma
+
+/src/generated/prisma
+
+/src/generated/prisma
+
 /src/generated/prisma
 
 /src/generated/prisma
