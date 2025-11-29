@@ -1,6 +1,8 @@
+// Auth login screen routing users to dashboards based on role.
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, Link } from "react-router-dom";
+import toast from "react-hot-toast";
 import Input from "../../ui/Input";
 import Button from "../../ui/Button";
 import AuthCard from "../../ui/AuthCard";
@@ -14,8 +16,9 @@ const Login: React.FC = () => {
 	const [form, setForm] = useState({ email: "", password: "" });
 
 	useEffect(() => {
-		if (user?.role === "ADMIN") navigate("/admin");
+		if (user?.role === "ADMIN" || user?.role === "RC_ADMIN") navigate("/admin");
 		if (user?.role === "STUDENT") navigate("/student");
+		if (user?.role === "DISTRIBUTOR") navigate("/distributor");
 	}, [user, navigate]);
 
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -23,9 +26,15 @@ const Login: React.FC = () => {
 		setForm((prev) => ({ ...prev, [name]: value }));
 	};
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		dispatch(loginUser(form));
+		try {
+			await dispatch(loginUser(form)).unwrap();
+			toast.success("Login successful");
+		} catch (err: any) {
+			const msg = typeof err === "string" ? err : "Login failed. Please try again.";
+			toast.error(msg);
+		}
 	};
 
 	return (

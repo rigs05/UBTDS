@@ -1,6 +1,8 @@
+// Registration form for students and admin invite flow.
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import Input from "../../ui/Input";
 import Button from "../../ui/Button";
 import AuthCard from "../../ui/AuthCard";
@@ -27,8 +29,13 @@ const Register: React.FC = () => {
 	const adminDisabled = useMemo(() => !user || user.role !== "ADMIN", [user]);
 
 	useEffect(() => {
-		if (user?.role === "ADMIN") navigate("/admin");
-		if (user?.role === "STUDENT") navigate("/student");
+		if (!user) return;
+		if (user.role === "STUDENT") {
+			navigate("/student");
+		} else if (user.role === "DISTRIBUTOR") {
+			navigate("/distributor");
+		}
+		// Allow ADMIN / RC_ADMIN to stay on this page to register other admins.
 	}, [user, navigate]);
 
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -36,9 +43,15 @@ const Register: React.FC = () => {
 		setForm((prev) => ({ ...prev, [name]: value }));
 	};
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		dispatch(registerUser(form));
+		try {
+			await dispatch(registerUser(form)).unwrap();
+			toast.success("Registration successful");
+		} catch (err: any) {
+			const msg = typeof err === "string" ? err : "Registration failed. Please try again.";
+			toast.error(msg);
+		}
 	};
 
 	const showStudentFields = form.role === "STUDENT";
@@ -76,7 +89,7 @@ const Register: React.FC = () => {
 					</div>
 				</div>
 				<Input label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
-				<Input label="Phone" name="phone" value={form.phone} onChange={handleChange} />
+				<Input label="Phone" name="phone" value={form.phone} onChange={handleChange} maxLength={10} />
 				<Input label="Address" name="address" value={form.address} onChange={handleChange} />
 				{showStudentFields && (
 					<Input

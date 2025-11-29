@@ -1,3 +1,4 @@
+// Responsive nav bar matching the grey-gold theme with role-based quick links.
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -17,15 +18,33 @@ const Navbar: React.FC = () => {
 		navigate("/login");
 	};
 
-	// Role-based quick links; keep minimal for now
 	const roleLinks: Record<string, { to: string; label: string }[]> = {
 		ADMIN: [
-			{ to: "/admin", label: "Dashboard" },
-			{ to: "/register", label: "Invite Admin" },
+			{ to: "/admin", label: "Console" },
+			{ to: "/dashboard/central", label: "Central" },
+			{ to: "/analytics", label: "Analytics" },
+			{ to: "/zones", label: "Zones" },
+			{ to: "/feedback", label: "Feedback" },
+			{ to: "/register", label: "Register Admin" },
+		],
+		RC_ADMIN: [
+			{ to: "/admin", label: "Console" },
+			{ to: "/dashboard/central", label: "Central" },
+			{ to: "/analytics", label: "Analytics" },
+			{ to: "/zones", label: "Zones" },
+			{ to: "/feedback", label: "Feedback" },
+			{ to: "/register", label: "Register Admin" },
+		],
+		DISTRIBUTOR: [
+			{ to: "/distributor", label: "Orders" },
+			{ to: "/catalog", label: "Catalog" },
+			{ to: "/zones", label: "Zones" },
 		],
 		STUDENT: [
-			{ to: "/student", label: "Dashboard" },
-			{ to: "/register", label: "Profile" },
+			{ to: "/student", label: "Tracking" },
+			{ to: "/catalog", label: "Catalog" },
+			{ to: "/feedback", label: "Feedback" },
+			{ to: "/zones", label: "Zones" },
 		],
 	};
 
@@ -36,7 +55,7 @@ const Navbar: React.FC = () => {
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 				<div className="flex justify-between items-center h-16">
 					<Link to="/" className="text-xl font-semibold text-amber-200 tracking-tight hover:text-amber-100 transition">
-						BookTrackr
+						University Book Tracking & Delivery System (UBTDS)
 					</Link>
 
 					<div className="hidden md:flex items-center space-x-6">
