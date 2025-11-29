@@ -31,8 +31,8 @@ export const registerUser = createAsyncThunk(
 	"auth/register",
 	async (data: any, { rejectWithValue }) => {
 		try {
-			const endpoint = data.role === "ADMIN" ? AUTH_ENDPOINTS.registerAdmin : AUTH_ENDPOINTS.registerStudent;
-			const res = await axios.post(endpoint, data);
+			const payload = { ...data, role: data.role };
+			const res = await axios.post(AUTH_ENDPOINTS.registerStudent, payload);
 			return res.data.user as User;
 		} catch (error: any) {
 			return rejectWithValue(error.response?.data?.message || "Registration failed");

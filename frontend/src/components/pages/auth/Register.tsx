@@ -9,7 +9,7 @@ import AuthCard from "../../ui/AuthCard";
 import { registerUser } from "../../../store/authSlice";
 import type { AppDispatch, RootState } from "../../../store/store";
 
-type FormRole = "STUDENT" | "ADMIN";
+type FormRole = "STUDENT" | "ADMIN" | "DISTRIBUTOR";
 
 const Register: React.FC = () => {
 	const dispatch = useDispatch<AppDispatch>();
@@ -27,6 +27,7 @@ const Register: React.FC = () => {
 	});
 
 	const adminDisabled = useMemo(() => !user || user.role !== "ADMIN", [user]);
+	const distributorDisabled = adminDisabled;
 
 	useEffect(() => {
 		if (!user) return;
@@ -80,10 +81,13 @@ const Register: React.FC = () => {
 							<option value="ADMIN" disabled={adminDisabled}>
 								Admin (admin session required)
 							</option>
+							<option value="DISTRIBUTOR" disabled={distributorDisabled}>
+								Distributor (admin session required)
+							</option>
 						</select>
 						{adminDisabled && (
 							<p className="text-xs text-amber-100/70 mt-1">
-								Sign in as an admin first to invite another admin.
+								Sign in as an admin first to invite another admin or distributor.
 							</p>
 						)}
 					</div>
