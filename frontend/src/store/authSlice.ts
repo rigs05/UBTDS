@@ -1,21 +1,10 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
+import { AUTH_ENDPOINTS, API_BASE_URL } from "../utils/constants";
+import type { User } from "../utils/types";
 
-// Adjust this base URL for your backend API (Vite will proxy if configured)
-axios.defaults.withCredentials = true; // important for cookies (JWT)
-axios.defaults.baseURL =
-	import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-
-// ----- Types -----
-export type Role = "ADMIN" | "RC_ADMIN" | "DISTRIBUTOR" | "STUDENT";
-
-export interface User {
-	id: string;
-	email: string;
-	role: Role;
-	firstName?: string;
-	lastName?: string;
-}
+axios.defaults.withCredentials = true;
+axios.defaults.baseURL = API_BASE_URL;
 
 interface AuthState {
 	user: User | null;
@@ -23,24 +12,30 @@ interface AuthState {
 	error: string | null;
 }
 
-// ----- Initial State -----
 const initialState: AuthState = {
 	user: null,
 	loading: false,
 	error: null,
 };
 
-// ----- Async Thunks -----
+export const fetchSession = createAsyncThunk("auth/me", async (_, { rejectWithValue }) => {
+	try {
+		const res = await axios.get(AUTH_ENDPOINTS.session);
+		return res.data.user as User;
+	} catch (error: any) {
+		return rejectWithValue(error.response?.data?.message || "Session fetch failed");
+	}
+});
+
 export const registerUser = createAsyncThunk(
 	"auth/register",
 	async (data: any, { rejectWithValue }) => {
 		try {
-			const res = await axios.post("/auth/register", data);
-			return res.data.user;
+			const endpoint = data.role === "ADMIN" ? AUTH_ENDPOINTS.registerAdmin : AUTH_ENDPOINTS.registerStudent;
+			const res = await axios.post(endpoint, data);
+			return res.data.user as User;
 		} catch (error: any) {
-			return rejectWithValue(
-				error.response?.data?.message || "Registration failed"
-			);
+			return rejectWithValue(error.response?.data?.message || "Registration failed");
 		}
 	}
 );
@@ -49,8 +44,8 @@ export const loginUser = createAsyncThunk(
 	"auth/login",
 	async (data: { email: string; password: string }, { rejectWithValue }) => {
 		try {
-			const res = await axios.post("/auth/login", data);
-			return res.data.user;
+			const res = await axios.post(AUTH_ENDPOINTS.login, data);
+			return res.data.user as User;
 		} catch (error: any) {
 			return rejectWithValue(error.response?.data?.message || "Login failed");
 		}
@@ -58,11 +53,10 @@ export const loginUser = createAsyncThunk(
 );
 
 export const logoutUser = createAsyncThunk("auth/logout", async () => {
-	await axios.post("/auth/logout");
+	await axios.post(AUTH_ENDPOINTS.logout);
 	return null;
 });
 
-// ----- Slice -----
 const authSlice = createSlice({
 	name: "auth",
 	initialState,
@@ -73,6 +67,18 @@ const authSlice = createSlice({
 	},
 	extraReducers: (builder) => {
 		builder
+			.addCase(fetchSession.pending, (state) => {
+				state.loading = true;
+				state.error = null;
+			})
+			.addCase(fetchSession.fulfilled, (state, action: PayloadAction<User>) => {
+				state.loading = false;
+				state.user = action.payload;
+			})
+			.addCase(fetchSession.rejected, (state) => {
+				state.loading = false;
+				state.user = null;
+			})
 			// REGISTER
 			.addCase(registerUser.pending, (state) => {
 				state.loading = true;

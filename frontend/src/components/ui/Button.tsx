@@ -12,11 +12,11 @@ const Button: React.FC<ButtonProps> = ({
 	...props
 }) => {
 	const base =
-		"w-full py-2 px-4 rounded-md font-medium transition disabled:opacity-50";
+		"w-full py-2.5 px-4 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed";
 	const styles =
 		variant === "primary"
-			? "bg-indigo-600 text-white hover:bg-indigo-700"
-			: "bg-gray-100 text-gray-800 hover:bg-gray-200";
+			? "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 text-slate-950 shadow-lg hover:from-amber-400 hover:to-amber-500 hover:shadow-amber-500/25"
+			: "bg-slate-800 text-amber-50 border border-amber-200/20 hover:bg-slate-700";
 
 	return (
 		<button {...props} disabled={loading} className={`${base} ${styles}`}>

@@ -1,28 +1,37 @@
-import express, { type NextFunction, type Request, type Response } from 'express';
-import router from './routes/index.js';
-import authRouter from './routes/authRoutes.js';
-import cors, { type CorsOptions } from 'cors';
-import { prisma } from './config/db.js';
-// import prisma from './config/db.js';
+import cors, { type CorsOptions } from "cors";
+import cookieParser from "cookie-parser";
+import express, { type NextFunction, type Request, type Response } from "express";
+import { prisma } from "./config/db.js";
+import authRouter from "./routes/authRoutes.js";
+import router from "./routes/index.js";
+// import { ALLOWED_ORIGINS } from "./utils/constants.js";
+
+const ALLOWED_ORIGINS = process.env.FRONTEND_URLS as String;
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const corsOptions: CorsOptions = {
-  origin: '*',
-  credentials: true,
-  optionsSuccessStatus: 200,
+	origin: (origin, callback) => {
+		if (!origin) return callback(null, true);
+		if (ALLOWED_ORIGINS.indexOf(origin) !== -1 || !origin)
+			return callback(null, true);
+		return callback(new Error(`Origin ${origin} not allowed by CORS`));
+	},
+	credentials: true,
+	optionsSuccessStatus: 200,
 };
 
 (async () => {
 	// Connect the DB
-	await prisma.$connect()
-	.then(() => console.log("Database connected successfully.") )
-	.catch(err => console.error("Unable to connect to Prisma client: ", err));
-	
-	
-	app.use(cors(corsOptions));
+	await prisma
+		.$connect()
+		.then(() => console.log("Database connected successfully."))
+		.catch((err) => console.error("Unable to connect to Prisma client: ", err));
 
+		app.use(cookieParser());
+	app.use(cors(corsOptions));
 	app.use(express.json());
+
 	app.use("/auth", authRouter);
 	app.use("/api", router);
 
