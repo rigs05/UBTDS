@@ -1,12 +1,8 @@
 // Central dashboard for RC/HQ with approvals, status dropdown, detail modal, and bulk actions.
 import React, { useEffect, useMemo, useState } from "react";
-import { useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
 import { Check, Info, MoreHorizontal, X } from "lucide-react";
 import axios from "axios";
 import { bulkRequests as mockBulk, centralDashboardEntries as mockEntries } from "../../../data/mockData";
-import { AUTH_ENDPOINTS } from "../../../utils/constants";
-import type { RootState } from "../../../store/store";
 
 const statuses = ["All", "Pending", "Approved", "Cancelled", "Completed", "Dispatched", "In-Transit"] as const;
 
@@ -29,9 +25,6 @@ const statusColor = (status: string) => {
 };
 
 const CentralDashboard: React.FC = () => {
-	const user = useSelector((state: RootState) => state.auth.user);
-	const canRegisterAdmin = user?.role === "ADMIN" || user?.role === "RC_ADMIN";
-	const navigate = useNavigate();
 	const [statusFilter, setStatusFilter] = useState<(typeof statuses)[number]>("All");
 	const [search, setSearch] = useState("");
 	const [entries, setEntries] = useState(mockEntries);
@@ -136,26 +129,6 @@ const CentralDashboard: React.FC = () => {
 		syncBulkStatusToMock(id, status);
 	};
 
-	const registerAdminForEntry = async (entry: any) => {
-		if (!canRegisterAdmin) return;
-		const [firstName, ...rest] = (entry.name || "Admin User").split(" ");
-		const payload = {
-			firstName: firstName || "Admin",
-			lastName: rest.join(" ") || "User",
-			email: `${entry.enrollment || "admin"}@ubtds-admin.test`,
-			password: "Admin@123",
-			phone: (entry.mobile || "").replace(/\D/g, "").slice(-10) || "9999999999",
-			address: entry.address || "HQ",
-			role: "ADMIN",
-		};
-		try {
-			await axios.post(AUTH_ENDPOINTS.registerAdmin, payload);
-		} catch (err) {
-			console.error("Admin registration failed", err);
-		}
-		navigate("/register");
-	};
-
 	return (
 		<div className="space-y-4 text-amber-50">
 			<header className="bg-slate-900/80 border border-amber-200/15 rounded-2xl p-6 shadow-2xl backdrop-blur-md flex items-center justify-between flex-wrap gap-3">
@@ -248,7 +221,6 @@ const CentralDashboard: React.FC = () => {
 								<th className="py-2 pr-4 text-center">Mobile</th>
 								<th className="py-2 pr-4 text-center">Status</th>
 								<th className="py-2 pr-4 text-center">Action</th>
-								{canRegisterAdmin && <th className="py-2 pr-4 text-center">Register User</th>}
 							</tr>
 						</thead>
 						<tbody>
@@ -338,16 +310,6 @@ const CentralDashboard: React.FC = () => {
 											</button>
 										</div>
 									</td>
-									{canRegisterAdmin && (
-										<td className="py-3 pr-4 text-center">
-											<button
-												onClick={() => registerAdminForEntry(row)}
-												className="px-3 py-2 rounded-lg bg-slate-800/70 border border-amber-200/20 text-amber-50 hover:border-amber-300/30 cursor-pointer text-xs"
-											>
-												Register Admin
-											</button>
-										</td>
-									)}
 								</tr>
 							))}
 						</tbody>
