@@ -1,7 +1,7 @@
 // Auth login screen routing users to dashboards based on role.
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import Input from "../../ui/Input";
 import Button from "../../ui/Button";
@@ -12,14 +12,28 @@ import type { AppDispatch, RootState } from "../../../store/store";
 const Login: React.FC = () => {
 	const dispatch = useDispatch<AppDispatch>();
 	const navigate = useNavigate();
+	const location = useLocation();
 	const { user, loading, error } = useSelector((state: RootState) => state.auth);
 	const [form, setForm] = useState({ email: "", password: "" });
+	const from = (location.state as any)?.from?.pathname || "/";
 
-	useEffect(() => {
-		if (user?.role === "ADMIN" || user?.role === "RC_ADMIN") navigate("/admin");
-		if (user?.role === "STUDENT") navigate("/student");
-		if (user?.role === "DISTRIBUTOR") navigate("/distributor");
-	}, [user, navigate]);
+useEffect(() => {
+	if (user?.role === "ADMIN" || user?.role === "RC_ADMIN") {
+		navigate("/admin", { replace: true });
+		return;
+	}
+
+	if (user?.role === "STUDENT") {
+		navigate("/student", { replace: true });
+		return;
+	}
+
+	if (user?.role === "DISTRIBUTOR") {
+		navigate("/distributor", { replace: true });
+		return;
+	}
+}, [user, navigate, from]);
+
 
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const { name, value } = e.target;

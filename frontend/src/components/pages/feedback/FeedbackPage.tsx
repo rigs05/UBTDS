@@ -4,6 +4,7 @@ import { Send } from "lucide-react";
 import axios from "axios";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../../store/store";
+import toast from "react-hot-toast";
 
 type FeedbackFor = "student" | "distributor";
 
@@ -28,11 +29,13 @@ const FeedbackPage: React.FC = () => {
 	const userRole = useSelector((state: RootState) => state.auth.user?.role);
 	const isAdminView = userRole === "ADMIN" || userRole === "RC_ADMIN";
 	const [feedbackFor, setFeedbackFor] = useState<FeedbackFor>("student");
-	const [form, setForm] = useState({ enrollment: "", name: "", feedbackType: "Delivery", message: "", contact: "" });
+	const initialForm = { enrollment: "", name: "", feedbackType: "Delivery", message: "", contact: "" };
+	const [form, setForm] = useState(initialForm);
 	const [submitted, setSubmitted] = useState(false);
 	const [senderFilter, setSenderFilter] = useState<"all" | "student" | "distributor">("all");
 	const [typeFilter, setTypeFilter] = useState<string>("all");
 	const [dateFilter, setDateFilter] = useState<string>("");
+	const [inbox, setInbox] = useState<IncomingFeedback[]>(incomingFeedbacks);
 
 	useEffect(() => {
 		if (isAdminView) return;
@@ -58,12 +61,12 @@ const FeedbackPage: React.FC = () => {
 		setForm((prev) => ({ ...prev, [name]: value }));
 	};
 
-	const filteredFeedbacks = incomingFeedbacks.filter((fb) => {
-		const senderMatch = senderFilter === "all" || fb.sender === senderFilter;
-		const typeMatch = typeFilter === "all" || fb.feedbackType === typeFilter;
-		const dateMatch = !dateFilter || fb.date === dateFilter;
-		return senderMatch && typeMatch && dateMatch;
-	});
+	// const filteredFeedbacks = incomingFeedbacks.filter((fb) => {
+	// 	const senderMatch = senderFilter === "all" || fb.sender === senderFilter;
+	// 	const typeMatch = typeFilter === "all" || fb.feedbackType === typeFilter;
+	// 	const dateMatch = !dateFilter || fb.date === dateFilter;
+	// 	return senderMatch && typeMatch && dateMatch;
+	// });
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -76,12 +79,44 @@ const FeedbackPage: React.FC = () => {
 				contact: form.contact,
 				role: feedbackFor === "student" ? "STUDENT" : "DISTRIBUTOR",
 			})
-			.catch(() => undefined)
-			.finally(() => {
+			.then(() => {
+				toast.success("Feedback submitted");
+				setForm(initialForm);
 				setSubmitted(true);
-				setTimeout(() => setSubmitted(false), 2500);
+				setTimeout(() => setSubmitted(false), 2000);
+			})
+			.catch(() => {
+				toast.error("Unable to submit feedback right now.");
 			});
 	};
+
+	// Load inbox for admins
+	useEffect(() => {
+		if (!isAdminView) return;
+		const load = async () => {
+			try {
+				const res = await axios.get("/api/admin/feedback");
+				const data = res.data.feedback || [];
+				const mapped: IncomingFeedback[] = data.map((fb: any) => ({
+					id: fb.id,
+					sender: (fb.role || fb.senderRole || "student").toString().toLowerCase().includes("distributor")
+						? "distributor"
+						: "student",
+					name: fb.name || fb.user?.firstName || "User",
+					date: fb.date || fb.createdAt || "",
+					feedbackType: fb.feedbackType || "General",
+					message: fb.message,
+					enrollment: fb.enrollment,
+				}));
+				setInbox(mapped);
+			} catch (err) {
+				console.error("Unable to load feedback inbox", err);
+				toast.error("Unable to load feedback inbox");
+				setInbox(incomingFeedbacks);
+			}
+		};
+		load();
+	}, [isAdminView]);
 
 	return (
 		<div className="max-w-4xl mx-auto space-y-4 text-amber-50">
@@ -121,6 +156,7 @@ const FeedbackPage: React.FC = () => {
 									value={form.enrollment}
 									onChange={handleChange}
 									required
+									maxLength={10}
 									className="w-full mt-1 px-3 py-2 rounded-lg bg-slate-800/70 border border-amber-200/20 text-amber-50 focus:ring-2 focus:ring-amber-400/50"
 								/>
 							</div>
@@ -159,6 +195,7 @@ const FeedbackPage: React.FC = () => {
 									value={form.contact}
 									onChange={handleChange}
 									placeholder="+91-98765-43210"
+									maxLength={10}
 									className="w-full mt-1 px-3 py-2 rounded-lg bg-slate-800/70 border border-amber-200/20 text-amber-50 focus:ring-2 focus:ring-amber-400/50"
 								/>
 							</div>
@@ -244,7 +281,7 @@ const FeedbackPage: React.FC = () => {
 					</div>
 
 					<div className="grid sm:grid-cols-2 gap-3">
-						{filteredFeedbacks.map((fb) => (
+						{(inbox || []).map((fb) => (
 							<div key={fb.id} className="rounded-xl bg-slate-800/70 border border-amber-200/10 p-3 space-y-2">
 								<div className="flex items-center justify-between text-xs text-amber-100/70">
 									<span className="capitalize">{fb.sender}</span>
@@ -258,7 +295,7 @@ const FeedbackPage: React.FC = () => {
 								</p>
 							</div>
 						))}
-						{filteredFeedbacks.length === 0 && (
+						{(!inbox || inbox.length === 0) && (
 							<p className="text-sm text-amber-100/70">No feedback matches the selected filters.</p>
 						)}
 					</div>

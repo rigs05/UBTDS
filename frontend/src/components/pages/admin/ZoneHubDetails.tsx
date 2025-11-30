@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { MapPin, PenLine } from "lucide-react";
 import axios from "axios";
+import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../../store/store";
 
@@ -45,6 +46,30 @@ const ZoneHubDetails: React.FC = () => {
 	}, [zones, search, rcFilter, maxDistance]);
 
 	const rcOptions = useMemo(() => Array.from(new Set(zones.map((z) => z.rc))), [zones]);
+
+	const handleSave = async () => {
+		if (!editZone) return;
+		try {
+			const payload = {
+				name: editZone.name,
+				address: editZone.address,
+				phone: editZone.phone,
+				note: editZone.note,
+				distanceKm: editZone.distanceKm,
+				rcCode: editZone.rc,
+			};
+			const res = await axios.patch(`/api/admin/zones/${editZone.id}`, payload);
+			const updated = res.data.zone || payload;
+			setZones((prev) =>
+				prev.map((z) => (z.id === editZone.id ? { ...z, ...updated } : z))
+			);
+			setEditZone(null);
+			toast.success("Zone updated");
+		} catch (err) {
+			console.error("Unable to update zone", err);
+			toast.error("Unable to update zone right now.");
+		}
+	};
 
 	return (
 		<div className="space-y-4 text-amber-50">
@@ -242,10 +267,7 @@ const ZoneHubDetails: React.FC = () => {
 								Cancel
 							</button>
 							<button
-								onClick={() => {
-									setZones((prev) => prev.map((z) => (z.id === editZone.id ? editZone : z)));
-									setEditZone(null);
-								}}
+								onClick={handleSave}
 								className="px-4 py-2 rounded-lg bg-linear-to-r from-amber-500 via-amber-400 to-amber-600 text-slate-950 font-semibold shadow-lg shadow-amber-500/20 hover:from-amber-400 hover:to-amber-500 transition"
 							>
 								Save

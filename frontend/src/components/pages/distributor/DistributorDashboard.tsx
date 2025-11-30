@@ -1,8 +1,11 @@
 // Distributor dashboard showing RC/HQ-approved items only.
 import React, { useMemo } from "react";
+import { useSelector } from "react-redux";
 import { centralDashboardEntries } from "../../../data/mockData";
+import type { RootState } from "../../../store/store";
 
 const DistributorDashboard: React.FC = () => {
+	const user = useSelector((state: RootState) => state.auth.user);
 	const approved = useMemo(
 		() => centralDashboardEntries.filter((row) => ["Approved", "Completed"].includes(row.status)),
 		[]
@@ -14,6 +17,11 @@ const DistributorDashboard: React.FC = () => {
 				<p className="text-xs text-amber-100/70">25 distributors mapped to 50 zones</p>
 				<h1 className="text-2xl font-semibold text-amber-100">Distributor dashboard</h1>
 				<p className="text-sm text-amber-100/70">Only entries approved by RC/HQ are listed here.</p>
+				{user && (
+					<p className="text-xs text-amber-100/70 mt-1">
+						Logged in as {user.firstName} {user.lastName || ""} • {user.email}
+					</p>
+				)}
 			</header>
 
 			<section className="bg-slate-900/80 border border-amber-200/15 rounded-2xl p-4 shadow-xl backdrop-blur-md">

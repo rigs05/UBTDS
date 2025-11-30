@@ -46,6 +46,10 @@ const Register: React.FC = () => {
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+		if (form.role === "STUDENT" && !/^\d{10}$/.test(form.enrollmentNo.trim())) {
+			toast.error("Enrollment number must be exactly 10 digits.");
+			return;
+		}
 		try {
 			await dispatch(registerUser(form)).unwrap();
 			toast.success("Registration successful");
@@ -101,7 +105,11 @@ const Register: React.FC = () => {
 						name="enrollmentNo"
 						value={form.enrollmentNo}
 						onChange={handleChange}
-						placeholder="Optional but helps with records"
+						placeholder="10-digit enrollment number"
+						required
+						minLength={10}
+						maxLength={10}
+						pattern="^\d{10}$"
 					/>
 				)}
 				<Input

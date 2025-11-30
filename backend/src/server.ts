@@ -4,7 +4,6 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { prisma } from "./config/db.js";
 import authRouter from "./routes/authRoutes.js";
 import router from "./routes/index.js";
-// import { ALLOWED_ORIGINS } from "./utils/constants.js";
 
 const ALLOWED_ORIGINS = process.env.FRONTEND_URLS as String;
 const app = express();

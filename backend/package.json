@@ -9,10 +9,14 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --exec tsx src/server.ts",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio",
+    "prisma:generate": "tsx prisma generate",
+    "prisma:migrate": "tsx prisma migrate dev",
+    "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:studio": "tsx prisma studio",
     "seed:books": "tsx src/scripts/seedBooks.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",

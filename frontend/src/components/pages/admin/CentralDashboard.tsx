@@ -27,9 +27,11 @@ const statusColor = (status: string) => {
 const CentralDashboard: React.FC = () => {
 	const [statusFilter, setStatusFilter] = useState<(typeof statuses)[number]>("All");
 	const [search, setSearch] = useState("");
-	const [entries, setEntries] = useState(mockEntries);
-	const [selected, setSelected] = useState(mockEntries[0]);
+	const initialEntries = mockEntries.map((m) => ({ ...m, id: (m as any).id || `mock-${m.serial}` }));
+	const [entries, setEntries] = useState(initialEntries);
+	const [selected, setSelected] = useState(initialEntries[0]);
 	const [pickupRequests, setPickupRequests] = useState<any[]>([]);
+	const [processedPickups, setProcessedPickups] = useState<any[]>([]);
 	const [bulk, setBulk] = useState(mockBulk);
 	const [dropdownFor, setDropdownFor] = useState<number | null>(null);
 	const [showModal, setShowModal] = useState(false);
@@ -87,9 +89,12 @@ const CentralDashboard: React.FC = () => {
 					};
 				});
 				const merged = mapped.length ? mapped : mockEntries;
-				setEntries(merged);
-				setSelected(merged[0]);
-				setPickupRequests(pickupRes.data.requests || []);
+				const withIds = merged.map((m: any) => ({ ...m, id: m.id || `order-${m.serial || Math.random().toString(36).slice(2)}` }));
+				setEntries(withIds);
+				setSelected(withIds[0]);
+				const reqs = pickupRes.data.requests || [];
+				setPickupRequests(reqs.filter((r: any) => (r.status || "Pending").toLowerCase() === "pending"));
+				setProcessedPickups(reqs.filter((r: any) => (r.status || "").toLowerCase() !== "pending"));
 				setBulk(mockBulk);
 			} catch (err) {
 				console.error("Unable to load dashboard", err);
@@ -109,24 +114,45 @@ const CentralDashboard: React.FC = () => {
 		});
 	}, [entries, search, statusFilter]);
 
-	const updateStatus = (serial: number, status: string) => {
+	const updateStatus = async (id: string, serial: number, status: string) => {
 		if (status === "All") return;
 		setEntries((prev) => prev.map((item) => (item.serial === serial ? { ...item, status } : item)));
 		syncEntryStatusToMock(serial, status);
+		// Skip backend call if this is a mock/fallback id
+		if (!id || id.startsWith("mock") || id.startsWith("order-")) return;
+		try {
+			await axios.patch(`/api/admin/orders/${id}/status`, { status });
+		} catch (err) {
+			console.error("Unable to update order status", err);
+		}
 	};
 
 	const updatePickup = async (id: string, status: string) => {
 		setPickupRequests((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
 		try {
 			await axios.patch(`/api/admin/pickup-requests/${id}`, { status });
+			setPickupRequests((prev) => prev.filter((p) => p.id !== id));
+			setProcessedPickups((prev) => {
+				const existing = prev.find((p) => p.id === id);
+				if (existing) {
+					return prev.map((p) => (p.id === id ? { ...p, status } : p));
+				}
+				const pending = pickupRequests.find((p) => p.id === id);
+				return pending ? [...prev, { ...pending, status }] : prev;
+			});
 		} catch (err) {
 			console.error("Unable to update pickup request", err);
 		}
 	};
 
-	const updateBulkStatus = (id: string, status: string) => {
+	const updateBulkStatus = async (id: string, status: string) => {
 		setBulk((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
 		syncBulkStatusToMock(id, status);
+		try {
+			await axios.patch(`/api/admin/bulk-requests/${id}/status`, { status });
+		} catch (err) {
+			console.error("Unable to update bulk request status", err);
+		}
 	};
 
 	return (
@@ -207,6 +233,43 @@ const CentralDashboard: React.FC = () => {
 				</div>
 			</section>
 
+			{processedPickups.length > 0 && (
+				<section className="bg-slate-900/80 border border-amber-200/15 rounded-2xl p-4 shadow-xl backdrop-blur-md">
+					<div className="flex items-center justify-between mb-2">
+						<h2 className="text-lg font-semibold text-amber-100">Processed pickup requests</h2>
+						<span className="text-xs text-amber-100/70">Recently approved/rejected</span>
+					</div>
+					<div className="overflow-x-auto">
+						<table className="min-w-full text-sm">
+							<thead>
+								<tr className="text-left text-amber-100/70">
+									<th className="py-2 pr-4">Enrollment</th>
+									<th className="py-2 pr-4">Location</th>
+									<th className="py-2 pr-4">Status</th>
+									<th className="py-2 pr-4">Requested At</th>
+								</tr>
+							</thead>
+							<tbody>
+								{processedPickups.map((req) => (
+									<tr key={req.id} className="border-t border-amber-200/10">
+										<td className="py-3 pr-4 text-amber-100/80">{req.enrollment || "N/A"}</td>
+										<td className="py-3 pr-4 text-amber-100/80">{req.location}</td>
+										<td className="py-3 pr-4">
+											<span className={`${statusColor(req.status)} px-2 py-1 rounded-lg border inline-block`}>
+												{req.status}
+											</span>
+										</td>
+										<td className="py-3 pr-4 text-amber-100/70 text-xs">
+											{req.requestedAt ? new Date(req.requestedAt).toLocaleString() : "—"}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				</section>
+			)}
+
 			<section className="bg-slate-900/80 border border-amber-200/15 rounded-2xl p-4 shadow-xl backdrop-blur-md">
 				<div className="overflow-x-auto">
 					<table className="min-w-full text-sm">
@@ -253,14 +316,14 @@ const CentralDashboard: React.FC = () => {
 									<td className="py-3 pr-4">
 										<div className="flex gap-2 relative">
 											<button
-												onClick={() => updateStatus(row.serial, "Approved")}
+												onClick={() => updateStatus((row as any).id || "", row.serial, "Approved")}
 												title="Approve"
 												className="p-2 rounded-lg bg-slate-800/70 border border-amber-200/20 text-amber-50 hover:border-amber-300/30 cursor-pointer"
 											>
 												<Check className="w-4 h-4" />
 											</button>
 											<button
-												onClick={() => updateStatus(row.serial, "Cancelled")}
+												onClick={() => updateStatus((row as any).id || "", row.serial, "Cancelled")}
 												title="Cancel"
 												className="p-2 rounded-lg bg-slate-800/70 border border-amber-200/20 text-amber-50 hover:border-amber-300/30 cursor-pointer"
 											>
@@ -287,7 +350,7 @@ const CentralDashboard: React.FC = () => {
 															<button
 																key={opt}
 																onClick={() => {
-																	updateStatus(row.serial, opt);
+																	updateStatus((row as any).id || "", row.serial, opt);
 																	setDropdownFor(null);
 																}}
 																className="w-full text-left px-3 py-2 text-xs text-amber-100 hover:bg-slate-800"

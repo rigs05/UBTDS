@@ -44,6 +44,13 @@ export const registerController = async (req: Request, res: Response) => {
 
 		const requestedRole: Role = role || "STUDENT";
 
+		if (requestedRole === "STUDENT") {
+			const enrollmentValue = (enrollmentNo || "").toString().trim();
+			if (!/^\d{10}$/.test(enrollmentValue)) {
+				return res.status(400).json({ message: "Enrollment number must be exactly 10 digits." });
+			}
+		}
+
 		// If trying to create an admin, ensure the requester is an authenticated admin
 		if (requestedRole === "ADMIN") {
 			const requester = (req as any).user;
@@ -58,7 +65,8 @@ export const registerController = async (req: Request, res: Response) => {
 		}
 
 		const hashedPassword = await bcrypt.hash(password, 10);
-		const enrollmentValue = enrollmentNo?.toString().trim() || undefined;
+		const enrollmentValue =
+			requestedRole === "STUDENT" ? (enrollmentNo as any)?.toString().trim() : undefined;
 
 		const newUser = await prisma.user.create({
 			data: {

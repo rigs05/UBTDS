@@ -3,8 +3,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { useSelector } from "react-redux";
 import { CheckCircle2, Clock, History, MapPin, Package, PackageCheck, Truck } from "lucide-react";
 import { referenceStrip } from "../../../data/mockData";
+import type { RootState } from "../../../store/store";
 
 const statusIconMap: Record<string, any> = {
 	Dispatched: Package,
@@ -28,24 +30,39 @@ interface ProfilePayload {
 }
 
 const StudentDashboard: React.FC = () => {
+	const authUser = useSelector((state: RootState) => state.auth.user);
 	const [pickupChoice, setPickupChoice] = useState<string>("");
 	const [requestMessage, setRequestMessage] = useState<string | null>(null);
 	const [tracking, setTracking] = useState<TrackingPayload>({ timeline: [] });
 	const [profile, setProfile] = useState<ProfilePayload>({});
-	const [historyOpen, setHistoryOpen] = useState(false);
+	const [historyOpen, setHistoryOpen] = useState(true);
 	const [history, setHistory] = useState<any[]>([]);
+	const [pickupStatuses, setPickupStatuses] = useState<any[]>([]);
+	const [majorZones, setMajorZones] = useState<string[]>([]);
 
 	useEffect(() => {
 		const fetchData = async () => {
 			try {
-				const [trackRes, profileRes, historyRes] = await Promise.all([
+				const [trackRes, profileRes, historyRes, pickupRes] = await Promise.all([
 					axios.get("/api/student/track"),
 					axios.get("/api/student/profile"),
 					axios.get("/api/student/orders/history"),
+					axios.get("/api/student/pickup-request"),
 				]);
 				setTracking(trackRes.data);
 				setProfile(profileRes.data);
 				setHistory(historyRes.data.orders || []);
+				setPickupStatuses(pickupRes.data.requests || []);
+				// fetch zones to surface major pickup spots
+				try {
+					const zonesRes = await axios.get("/api/student/zones");
+					const zoneNames: string[] = (zonesRes.data?.zones || [])
+						.slice(0, 5)
+						.map((z: any) => `${z.name || z.code || "Zone"} (${z.code || z.name || "N/A"})`);
+					setMajorZones(zoneNames);
+				} catch (zoneErr) {
+					console.warn("Unable to load zones for pickup options", zoneErr);
+				}
 				const pickupable = (trackRes.data.timeline || []).filter((e: any) => e.allowPickup).map((e: any) => e.location);
 				setPickupChoice(pickupable[0] || "Headquarters (Maidan Garhi)");
 			} catch (err: any) {
@@ -57,14 +74,30 @@ const StudentDashboard: React.FC = () => {
 	}, []);
 
 	const pickupOptions = useMemo(() => {
-		return (tracking.timeline || []).filter((e: any) => e.allowPickup).map((e: any) => e.location);
-	}, [tracking.timeline]);
+		const fromTimeline = (tracking.timeline || []).filter((e: any) => e.allowPickup).map((e: any) => e.location);
+		const combined = [...fromTimeline, ...majorZones].filter(Boolean);
+		// dedupe while preserving order
+		const seen = new Set<string>();
+		const unique = combined.filter((loc) => {
+			if (seen.has(loc)) return false;
+			seen.add(loc);
+			return true;
+		});
+		return unique.length ? unique : ["Headquarters (Maidan Garhi)"];
+	}, [tracking.timeline, majorZones]);
 
 	const handlePickupRequest = async () => {
 		try {
-			await axios.post("/api/student/pickup-request", { location: pickupChoice });
+			const enrollment =
+				(authUser as any)?.enrollmentNo ||
+				(profile as any)?.enrollmentNo ||
+				(profile as any)?.enrollment ||
+				undefined;
+			await axios.post("/api/student/pickup-request", { location: pickupChoice, enrollment });
 			setRequestMessage("Pickup request sent for admin approval.");
 			toast.success("Pickup request sent for admin approval.");
+			const res = await axios.get("/api/student/pickup-request");
+			setPickupStatuses(res.data.requests || []);
 		} catch {
 			const msg = "Unable to send pickup request right now.";
 			setRequestMessage(msg);
@@ -82,6 +115,11 @@ const StudentDashboard: React.FC = () => {
 						<p className="text-sm text-amber-100/70 mt-2">
 							Headquarters dispatch → your RC → 50 zones / 100 hubs → doorstep or pickup.
 						</p>
+						{authUser && (
+							<p className="text-sm text-amber-100/80 mt-1">
+								Logged in as {authUser.firstName} {authUser.lastName || ""} • {(authUser as any).enrollmentNo || "N/A"}
+							</p>
+						)}
 					</div>
 					<div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-slate-800/80 rounded-lg border border-amber-200/20">
 						<MapPin className="w-4 h-4 text-amber-300" />
@@ -181,6 +219,19 @@ const StudentDashboard: React.FC = () => {
 							</div>
 						</div>
 						{requestMessage && <p className="text-sm text-amber-100/80 mt-2">{requestMessage}</p>}
+						{pickupStatuses.length > 0 && (
+							<div className="mt-3 rounded-xl border border-amber-200/10 bg-slate-800/70 p-3">
+								<p className="text-sm font-semibold text-amber-100 mb-2">Pickup request status</p>
+								<div className="space-y-1 text-xs text-amber-100/80">
+									{pickupStatuses.map((p) => (
+										<div key={p.id} className="flex justify-between border-b border-amber-200/10 py-1">
+											<span>{p.location}</span>
+											<span className="px-2 py-0.5 rounded-lg border border-amber-200/20">{p.status}</span>
+										</div>
+									))}
+								</div>
+							</div>
+						)}
 					</div>
 				</div>
 
@@ -230,23 +281,21 @@ const StudentDashboard: React.FC = () => {
 								{history.map((order) => (
 									<div
 										key={order.id}
-										className="rounded-lg border border-amber-200/10 bg-slate-800/60 p-3 hover:shadow-lg hover:shadow-amber-400/10 transition"
-									>
+										className="rounded-lg border border-amber-200/10 bg-slate-800/60 p-3 hover:shadow-lg hover:shadow-amber-400/10 transition">
 										<div className="flex items-center justify-between">
 											<p className="text-sm font-semibold text-amber-100">{order.status}</p>
-											<p className="text-xs text-amber-100/70">{order.orderedAt}</p>
+											<p className="text-xs text-amber-100/70">{order.createdAt ? new Date(order.createdAt).toLocaleString() : "-"}</p>
 										</div>
 										<p className="text-xs text-amber-100/70 mt-1">
-											ETA: {order.deliveryEtaDays} day(s) • {order.currentLocation}
+										Payment: {order.paymentMode || "-"} - Txn: {order.txnId || "-"}
 										</p>
 										<div className="flex flex-wrap gap-2 mt-2 text-xs text-amber-100/80">
 											{order.items.map((it: any) => (
-												<span
-													key={`${order.id}-${it.code}`}
-													className="px-2 py-1 rounded-lg bg-slate-900/70 border border-amber-200/15"
-												>
-													{it.code} × {it.qty}
-												</span>
+											<span
+												key={`${order.id}-${it.title || it.bookId || it.code || it.id}`}
+												className="px-2 py-1 rounded-lg bg-slate-900/70 border border-amber-200/15">
+												{it.title || it.code || "Book"} x {it.quantity || it.qty || 1}
+											</span>
 											))}
 										</div>
 									</div>

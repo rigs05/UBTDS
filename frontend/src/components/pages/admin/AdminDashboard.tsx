@@ -2,8 +2,11 @@
 import React from "react";
 import { BarChart3, CheckSquare, ClipboardList } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
+import type { RootState } from "../../../store/store";
 
 const AdminDashboard: React.FC = () => {
+	const user = useSelector((state: RootState) => state.auth.user);
 	return (
 		<div className="space-y-4 text-amber-50">
 			<header className="bg-slate-900/80 border border-amber-200/15 rounded-2xl p-6 shadow-2xl backdrop-blur-md flex items-center gap-3">
@@ -14,6 +17,11 @@ const AdminDashboard: React.FC = () => {
 					<p className="text-xs text-amber-100/70">Headquarters + RC control</p>
 					<h1 className="text-2xl font-semibold text-amber-100">Admin console</h1>
 					<p className="text-sm text-amber-100/70">Jump into approvals, analytics, and zone intelligence.</p>
+					{user && (
+						<p className="text-xs text-amber-100/70 mt-1">
+							Logged in as {user.firstName} {user.lastName || ""} • {user.email}
+						</p>
+					)}
 				</div>
 			</header>
 

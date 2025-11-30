@@ -10,12 +10,14 @@ interface AuthState {
 	user: User | null;
 	loading: boolean;
 	error: string | null;
+	initialized: boolean;
 }
 
 const initialState: AuthState = {
 	user: null,
 	loading: false,
 	error: null,
+	initialized: false,
 };
 
 export const fetchSession = createAsyncThunk("auth/me", async (_, { rejectWithValue }) => {
@@ -31,8 +33,10 @@ export const registerUser = createAsyncThunk(
 	"auth/register",
 	async (data: any, { rejectWithValue }) => {
 		try {
+			const isAdminish = data.role === "ADMIN" || data.role === "DISTRIBUTOR";
+			const endpoint = isAdminish ? AUTH_ENDPOINTS.registerAdmin : AUTH_ENDPOINTS.registerStudent;
 			const payload = { ...data, role: data.role };
-			const res = await axios.post(AUTH_ENDPOINTS.registerStudent, payload);
+			const res = await axios.post(endpoint, payload);
 			return res.data.user as User;
 		} catch (error: any) {
 			return rejectWithValue(error.response?.data?.message || "Registration failed");
@@ -74,10 +78,12 @@ const authSlice = createSlice({
 			.addCase(fetchSession.fulfilled, (state, action: PayloadAction<User>) => {
 				state.loading = false;
 				state.user = action.payload;
+				state.initialized = true;
 			})
 			.addCase(fetchSession.rejected, (state) => {
 				state.loading = false;
 				state.user = null;
+				state.initialized = true;
 			})
 			// REGISTER
 			.addCase(registerUser.pending, (state) => {
@@ -87,10 +93,12 @@ const authSlice = createSlice({
 			.addCase(registerUser.fulfilled, (state, action: PayloadAction<User>) => {
 				state.loading = false;
 				state.user = action.payload;
+				state.initialized = true;
 			})
 			.addCase(registerUser.rejected, (state, action: any) => {
 				state.loading = false;
 				state.error = action.payload;
+				state.initialized = true;
 			})
 			// LOGIN
 			.addCase(loginUser.pending, (state) => {
@@ -100,14 +108,17 @@ const authSlice = createSlice({
 			.addCase(loginUser.fulfilled, (state, action: PayloadAction<User>) => {
 				state.loading = false;
 				state.user = action.payload;
+				state.initialized = true;
 			})
 			.addCase(loginUser.rejected, (state, action: any) => {
 				state.loading = false;
 				state.error = action.payload;
+				state.initialized = true;
 			})
 			// LOGOUT
 			.addCase(logoutUser.fulfilled, (state) => {
 				state.user = null;
+				state.initialized = true;
 			});
 	},
 });
