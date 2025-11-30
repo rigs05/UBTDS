@@ -11,7 +11,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DB_URI")
+  // url      = env("DATABASE_URL")
 }
 
 // ---------- ENUMS ----------
@@ -38,6 +38,22 @@ enum OrderType {
   BULK
 }
 
+enum OrderKind {
+  NEW
+  OLD
+  MIXED
+}
+
+enum PaymentMode {
+  UPI
+  CREDIT_CARD
+  DEBIT_CARD
+  NETBANKING
+  NEFT
+  DEMAND_DRAFT
+  PO
+}
+
 // ---------- MODELS ----------
 
 // Regional Centers (main nodes per state/region)
@@ -59,12 +75,17 @@ model Zone {
   name         String
   code         String?          @unique
   state        String
+  address      String?
+  phone        String?
+  distanceKm   Float?
+  rating       Float?           @default(4.2)
+  note         String?          @default("")
   rcId         String
   rc           RegionalCenter   @relation(fields: [rcId], references: [id])
   distributors Distributor[]
   students     User[]
   hubs         Hub[]
-  // stocks       Stock[]
+  stocks       Stock[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -121,7 +142,7 @@ model Stock {
   bookId    String
   book      Book     @relation(fields: [bookId], references: [id])
   zoneId    String
-  // zone      Zone     @relation(fields: [zoneId], references: [id])
+  zone      Zone     @relation(fields: [zoneId], references: [id])
   quantity  Int
   condition BookCondition @default(NEW)
   createdAt DateTime @default(now())
@@ -169,11 +190,18 @@ model Order {
   student        User?          @relation(fields: [studentId], references: [id])
   distributorId  String?
   distributor    Distributor?  @relation(fields: [distributorId], references: [id])
-  status         String        @default("PENDING") // pending, dispatched, delivered, cancelled
+  status         String        @default("Pending") // Pending, Approved, Cancelled, Completed, Dispatched, In-Transit
   hubId          String?
   hub            Hub?          @relation(fields: [hubId], references: [id])
   etaDays        Int?
   orderType      OrderType     @default(INDIVIDUAL) // individual (done by Student), bulk (done by RC)
+  orderKind      OrderKind     @default(NEW)        // new, old, mixed (matches UI)
+  requestedFrom  String?
+  txnId          String?       @unique
+  paymentMode    PaymentMode   @default(UPI)
+  mobile         String?
+  address        String?
+  orderedAt      DateTime?     @default(now())
   items          OrderItem[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -196,8 +224,38 @@ model Feedback {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
+  feedbackType String?
+  contact    String?
+  enrollment String?
+  senderRole Role?
   message   String
   rating    Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Bulk material requests (RC / HQ / distributors)
+model BulkRequest {
+  id         String   @id @default(cuid())
+  requestor  String
+  role       Role
+  bookCode   String
+  count      Int
+  note       String?
+  payment    PaymentMode
+  status     String   @default("Requested")
+  requestedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Student pickup requests
+model PickupRequest {
+  id          String   @id @default(cuid())
+  enrollment  String
+  location    String
+  status      String   @default("Pending")
+  requestedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
